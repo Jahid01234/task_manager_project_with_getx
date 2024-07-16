@@ -1,9 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:task_manager_project_with_getx/data/models/network_response.dart';
-import 'package:task_manager_project_with_getx/data/network_caller/network_caller.dart';
-import 'package:task_manager_project_with_getx/data/utilities/urls.dart';
+import 'package:task_manager_project_with_getx/ui/controllers/pin_verification_controller.dart';
 import 'package:task_manager_project_with_getx/ui/screens/auth/reset_password_screen.dart';
 import 'package:task_manager_project_with_getx/ui/screens/auth/sign_in_screen.dart';
 import 'package:task_manager_project_with_getx/ui/utility/app_colors.dart';
@@ -22,7 +21,7 @@ class PinVerificationScreen extends StatefulWidget {
 class _PinVerificationScreenState extends State<PinVerificationScreen> {
   final TextEditingController _pinTEController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _pinVerificationInProgress = false;
+
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +52,22 @@ class _PinVerificationScreenState extends State<PinVerificationScreen> {
                     // Pin Text Field
                     _buildPinCodeTextField(),
                     const SizedBox(height: 15),
-                    Visibility(
-                      visible: _pinVerificationInProgress == false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _onTapVerifyOtpButton,
-                        child: const Text("Verify"),
-                      ),
+
+                    GetBuilder<PinVerificationController>(
+                        builder: (pinVerificationController){
+                          return Visibility(
+                            visible: pinVerificationController.pinVerificationInProgress == false,
+                            replacement: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _onTapVerifyOtpButton,
+                              child: const Text("Verify"),
+                            ),
+                          );
+                        }
                     ),
+
                     const SizedBox(height: 40),
                     _buildSignInSection(),
                   ],
@@ -145,47 +150,25 @@ class _PinVerificationScreenState extends State<PinVerificationScreen> {
   }
 
 
-  void _onTapVerifyOtpButton() {
+  Future<void> _onTapVerifyOtpButton() async {
     if(_formKey.currentState!.validate()){
-      _pinVerification();
-      // _verifyOtp(_pinTEController.text);
+      final bool result = await Get.find<PinVerificationController>().
+      pinVerification(widget.email, _pinTEController.text);
+
+      if(result){
+        Get.off(()=> ResetPasswordScreen(email: widget.email, otp: _pinTEController.text,));
+        if(mounted) {
+          showSnackBarMessage(context, "Pin verification successfully.");
+        }
+      }else{
+        if(mounted) {
+          showSnackBarMessage(context, Get.find<PinVerificationController>().errorMessage);
+        }
+      }
     }
   }
 
-  // pin verification api method
-  Future<void> _pinVerification() async {
-    _pinVerificationInProgress = true;
-    if(mounted){
-      setState(() {});
-    }
 
-    NetworkResponse response = await NetworkCaller.getRequest(
-      Urls.recoverVerifyOTP( widget.email, _pinTEController.text),
-    );
-
-    if (response.isSuccess && response.responseData['status'] == 'success') {
-
-      if(mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) =>
-              ResetPasswordScreen(
-                email: widget.email,
-                otp: _pinTEController.text,
-              ),
-          ),
-        );
-      }
-    } else {
-      if(mounted){
-        showSnackBarMessage(context, response.errorMessage ?? 'Failed to send verification pin.');
-      }
-    }
-    _pinVerificationInProgress = false;
-    if(mounted){
-      setState(() {});
-    }
-  }
 
 
   @override

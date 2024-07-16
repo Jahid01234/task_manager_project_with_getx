@@ -1,14 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project_with_getx/ui/controllers/email_verification_controller.dart';
 import 'package:task_manager_project_with_getx/ui/screens/auth/pin_verification_screen.dart';
 import 'package:task_manager_project_with_getx/ui/screens/auth/sign_in_screen.dart';
-
-import '../../../data/models/network_response.dart';
-import '../../../data/network_caller/network_caller.dart';
-import '../../../data/utilities/urls.dart';
+import 'package:task_manager_project_with_getx/ui/widgets/snack_bar_message.dart';
 import '../../utility/app_colors.dart';
 import '../../widgets/background_widget.dart';
-import '../../widgets/snack_bar_message.dart';
+
 
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -21,7 +20,7 @@ class EmailVerificationScreen extends StatefulWidget {
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final TextEditingController _emailTEController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _emailVerificationInProgress = false;
+
 
 
   @override
@@ -67,16 +66,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     ),
 
                     const SizedBox(height: 15),
-                    Visibility(
-                      visible: _emailVerificationInProgress==false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _onTapConfirmButton,
-                        child: const Icon(Icons.arrow_circle_right_outlined),
-                      ),
-                    ),
+                   GetBuilder<EmailVerificationController>(
+                       builder: (emailVerificationController){
+                         return  Visibility(
+                           visible: emailVerificationController.emailVerificationInProgress==false,
+                           replacement: const Center(
+                             child: CircularProgressIndicator(),
+                           ),
+                           child: ElevatedButton(
+                             onPressed: _onTapConfirmButton,
+                             child: const Icon(Icons.arrow_circle_right_outlined),
+                           ),
+                         );
+                       }
+                   ),
                     const SizedBox(height: 40),
                     Center(
                       child: RichText(
@@ -120,43 +123,25 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     );
   }
 
-  void _onTapConfirmButton() {
+  Future<void> _onTapConfirmButton() async {
     if(_formKey.currentState!.validate()){
-      _emailVerification();
-      // _verifyEmail(_emailTEController.text);
+      final bool result = await Get.find<EmailVerificationController>().
+      emailVerification(_emailTEController.text);
+
+      if(result){
+        Get.off(()=> PinVerificationScreen(email: _emailTEController.text));
+        if(mounted) {
+          showSnackBarMessage(context, "Email verification successfully.");
+        }
+      }else{
+        if(mounted) {
+          showSnackBarMessage(context, Get.find<EmailVerificationController>().errorMessage);
+        }
+      }
     }
   }
 
-  // email verification api method
-  Future<void> _emailVerification() async {
-    _emailVerificationInProgress = true;
-    if(mounted){
-      setState(() {});
-    }
 
-    NetworkResponse response = await NetworkCaller.getRequest(
-      Urls.recoverVerifyEmail(_emailTEController.text),
-    );
-
-    if (response.isSuccess && response.responseData['status'] == 'success') {
-      if(mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>  PinVerificationScreen(email: _emailTEController.text,),
-          ),
-        );
-      }
-    } else {
-      if(mounted){
-        showSnackBarMessage(context, response.errorMessage ?? 'Failed to send verification email.');
-      }
-    }
-    _emailVerificationInProgress = false;
-    if(mounted){
-      setState(() {});
-    }
-  }
 
 
 

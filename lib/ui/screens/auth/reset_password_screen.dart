@@ -1,10 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:task_manager_project_with_getx/data/models/login_model.dart';
-import 'package:task_manager_project_with_getx/data/models/network_response.dart';
-import 'package:task_manager_project_with_getx/data/network_caller/network_caller.dart';
-import 'package:task_manager_project_with_getx/data/utilities/urls.dart';
-import 'package:task_manager_project_with_getx/ui/controllers/auth_controller.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project_with_getx/ui/controllers/reset_password_controller.dart';
 import 'package:task_manager_project_with_getx/ui/screens/auth/sign_in_screen.dart';
 import 'package:task_manager_project_with_getx/ui/utility/app_colors.dart';
 import 'package:task_manager_project_with_getx/ui/widgets/background_widget.dart';
@@ -29,7 +26,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final TextEditingController _passwordTEController = TextEditingController();
   final TextEditingController _confirmPasswordTEController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _resetPasswordInProgress = false;
   bool _showPassword= false;
   bool _showConfirmPassword= false;
 
@@ -122,16 +118,22 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
 
                     const SizedBox(height: 15),
-                    Visibility(
-                      visible: _resetPasswordInProgress==false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _onTapConfirmButton,
-                        child: const Text("Confirm"),
-                      ),
+
+                    GetBuilder<ResetPasswordController>(
+                        builder: (resetPasswordController){
+                          return Visibility(
+                            visible: resetPasswordController.resetPasswordInProgress==false,
+                            replacement: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _onTapConfirmButton,
+                              child: const Text("Confirm"),
+                            ),
+                          );
+                        }
                     ),
+
                     const SizedBox(height: 40),
                     Center(
                       child: RichText(
@@ -175,65 +177,30 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 
-  void _onTapConfirmButton() {
+ Future<void> _onTapConfirmButton() async{
     if(_formKey.currentState!.validate()){
-      _resetPassword();
-      // _resetPassword(_passwordTEController.text);
-    }
-  }
-
-
-  //login Api calling function
-  Future<void> _resetPassword() async {
-    if (_passwordTEController.text != _confirmPasswordTEController.text) {
-      showSnackBarMessage(context, "Passwords do not match.");
-      return;
-    }
-
-    _resetPasswordInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-
-    Map<String, dynamic> requestData = {
-      "email":widget.email,
-      "OTP":widget.otp,
-      "password":_passwordTEController.text
-    };
-
-    final NetworkResponse response =
-    await NetworkCaller.postRequest(Urls.recoverResetPass, body: requestData);
-    _resetPasswordInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-    if (response.isSuccess) {
-      // Debug: Print response data to ensure password is being reset
-      print("Reset Password Response: ${response.responseData}");
-
-      LoginModel loginModel = LoginModel.fromJson(response.responseData);
-      await AuthController.saveUserData(loginModel.userModel!);
-      await AuthController.saveUserAccessToken(loginModel.token!);
-
-      if (mounted) {
-        showSnackBarMessage(
-            context, response.errorMessage ?? 'Reset password! Try Login now.');
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const SignInScreen(),),
-              (route) => false,
-        );
-      }
-    } else {
-      if (mounted) {
-        showSnackBarMessage(
-          context,
-          response.errorMessage ??
-              'Reset password failed. Try again',
-        );
+      final bool result = await Get.find<ResetPasswordController>().
+      resetPassword(
+          widget.email,
+          widget.otp,
+          _passwordTEController.text,
+        _confirmPasswordTEController.text
+      );
+      if(result){
+        Get.off(()=> const SignInScreen() );
+        if(mounted) {
+          showSnackBarMessage(context, "Reset password successfully.");
+        }
+      }else{
+        if(mounted) {
+          showSnackBarMessage(context, Get.find<ResetPasswordController>().errorMessage);
+        }
       }
     }
   }
+
+
+
 
 
 
